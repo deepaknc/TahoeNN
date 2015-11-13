@@ -67,6 +67,9 @@ public:
     void forwardProp(std::vector<float>& input, std::vector<float>& output)
     {
         std::cout << "forward prop from Input Layer" << std::endl;
+        output.resize(input.size());
+        // copy input to output, as the input layer does not apply any transformation.
+        std::copy(input.begin(), input.end(), output.begin());
     }
 
     void backProp()
@@ -120,6 +123,12 @@ public:
     {
         std::cout << "forward prop from Fully Connected Layer" << std::endl;
         // perform forward propagation
+        output.resize(_outputDim);
+        for (int i = 0; i < input.size(); i++)
+        {
+            // for ith neuron, perform a dot product with all the weights.   
+             
+        }
     }
 
     void backProp()
