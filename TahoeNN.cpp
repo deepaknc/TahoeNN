@@ -11,6 +11,8 @@
 // utility class
 void VectorRandomInitialize(std::vector<float>& input)
 {
+    std::cout << "Random Initializing Weights: " << input.size() << std::endl;
+    assert(input.size() > 0);
     // initialize to random floats in range [0,1]
     std::uniform_real_distribution<float> distribution(0.0f, 1.0f); //Values between 0 and 1
     std::mt19937 engine; // Mersenne twister MT19937
@@ -78,20 +80,108 @@ public:
     }
 };
 
-class OutputLayer : public BaseLayer
+
+class FullyConnectedHiddenLayer : public BaseLayer
 {
+
 public:
 
-    OutputLayer(int32_t inputDim, int32_t outputDim)
+    FullyConnectedHiddenLayer(
+        int32_t inputDim, 
+        int32_t outputDim)
         : BaseLayer(inputDim, outputDim)
-    {}
+    {
+    }
+
+protected:
 
     void initializeWeights()
     {
         _weights.reserve(_inputDim * _outputDim);
+        _weights.assign(_inputDim * _outputDim, 0.0);
         VectorRandomInitialize(_weights);
     }
+    
+    void forwardProp(std::vector<float>& input, std::vector<float>& output)
+    {
+        std::cout << "Forward prop from Fully Connected Layer" << std::endl;
+        // perform forward propagation
 
+        // initialize a vector to hold the sigma
+        std::vector<float> sigma(_outputDim, 0.0);
+
+        // this holds the activations / output
+        output.resize(_outputDim); 
+
+        for (int i = 0; i < input.size(); ++i)
+        {
+            int32_t startWeightIndex = i * _outputDim;
+            int32_t endWeightIndex = startWeightIndex + _outputDim;
+            // for ith neuron, perform a dot product with all the weights that are coming from that neuron
+            for (int j = startWeightIndex; j < endWeightIndex; ++j)
+            {
+                assert(j - startWeightIndex >= 0 && j - startWeightIndex < _outputDim);
+                assert((j - startWeightIndex) < sigma.size());
+                assert(j < _weights.size());
+                
+                sigma[j - startWeightIndex] += _weights[j] * input[i];     
+            }
+        }
+
+        // apply the sigmoid function on the sigma to get the activations.
+        for (int i = 0; i < sigma.size(); ++i)
+        {   
+            output[i] = 1 / 1 + exp(-sigma[i]); 
+            double param, fractpart, intpart;
+            fractpart = modf (output[i] , &intpart);
+            if (fractpart == 0.0)
+            {
+                std::cout << "Fract Part is 0 : " << output[i] << std::endl;
+            }
+            assert(output[i] >= 0);
+        }
+
+        for (auto elem : sigma)
+        {
+            std::cout << elem << ":"; 
+        }
+        std::cout << " " << std::endl;
+
+        for (auto elem : output)
+        {
+            std::cout << elem << ":";
+        }
+
+        std::cout << " " << std::endl;
+    }
+
+    void backProp()
+    {
+
+    }
+};
+
+class FullyConnectedOutputLayer : public FullyConnectedHiddenLayer
+{
+public:
+
+    FullyConnectedOutputLayer(int32_t inputDim, int32_t outputDim)
+        : FullyConnectedHiddenLayer(inputDim, outputDim)
+    {
+    }
+
+protected:
+
+    /*
+    void initializeWeights()
+    {
+        _weights.reserve(_inputDim * _outputDim);
+        _weights.assign(_inputDim * _outputDim, 0.0);
+        VectorRandomInitialize(_weights);
+    }
+    */
+
+    /*
     void forwardProp(std::vector<float>& input, std::vector<float>& output)
     {
         std::cout << "forward prop from Output Layer" << std::endl;
@@ -101,42 +191,8 @@ public:
     {
 
     }
+    */
 };
-
-class FullyConnectedHiddenLayer : public BaseLayer
-{
-public:
-
-    FullyConnectedHiddenLayer(
-        int32_t inputDim, 
-        int32_t outputDim)
-        : BaseLayer(inputDim, outputDim)
-    {}
- 
-    void initializeWeights()
-    {
-        _weights.reserve(_inputDim * _outputDim);
-        VectorRandomInitialize(_weights);
-    }
-    
-    void forwardProp(std::vector<float>& input, std::vector<float>& output)
-    {
-        std::cout << "forward prop from Fully Connected Layer" << std::endl;
-        // perform forward propagation
-        output.resize(_outputDim);
-        for (int i = 0; i < input.size(); i++)
-        {
-            // for ith neuron, perform a dot product with all the weights.   
-             
-        }
-    }
-
-    void backProp()
-    {
-
-    }
-};
-
 typedef std::vector<std::shared_ptr<BaseLayer>> LayerSet;
 
 ////////////////////////////////////////
@@ -187,7 +243,7 @@ private:
 
 
 /////////////////////////////////////////////
-// Trainer - This guy does the actual training
+// Trainer - This class does the actual training
 ////////////////////////////////////////////
 class Trainer
 {   
@@ -200,6 +256,7 @@ public:
     _dataFeed(dataFeed)
     {
         validate();
+        initializeWeights();
     }
  
     void validate()
@@ -214,6 +271,16 @@ public:
         {
             assert(prevLayerSize == layer->InputDim());
             prevLayerSize = layer->OutputDim();
+        }
+    }
+
+    void initializeWeights()
+    {
+        // this initializes weights to random,
+        // in future, we can possibly import the weights from a file / dump etc.
+        for (auto layer : *_layers)
+        {
+            layer->initializeWeights();
         }
     }
 
@@ -242,19 +309,25 @@ private:
     std::shared_ptr<IDataFeed> _dataFeed;
 };
 
+// basic sanity tests
+void tests()
+{
+    // Test 1
+}
+
 int main()
 {   
     // create layers
     std::shared_ptr<LayerSet> layers(new LayerSet({
         std::make_shared<InputLayer>(3),
         std::make_shared<FullyConnectedHiddenLayer>(3, 20),
-        std::make_shared<OutputLayer>(20, 2)
+        std::make_shared<FullyConnectedOutputLayer>(20, 2)
     }));
 
     // create a dummy data set
     std::vector<InputData> staticData = { 
         {{0.5,0.5,0.5}, {0.4,0.4}}, 
-        {{0.5,0.5,0.5}, {0.4,0.4}} 
+        {{0.4,0.6,0.9}, {0.3,0.7}} 
     };
 
     std::cout << staticData.size() << "   " << staticData[0]._input.size() << std::endl;
