@@ -1,4 +1,10 @@
-#include <iostream>
+///////////////////////
+// author: 
+//  koby becker, 
+//  beckerkoby@gmail.com, 
+//  2015
+///////////////////////
+#include <iostream> 
 #include <algorithm>
 #include <cstdint>
 #include <cassert>
@@ -7,6 +13,8 @@
 #include <random>
 #include <memory>
 #include <set>
+
+#define DEBUG_PRINT
 
 // utility class
 void VectorRandomInitialize(std::vector<float>& input)
@@ -24,6 +32,10 @@ void VectorRandomInitialize(std::vector<float>& input)
 // Layer Implementations
 // inputDimension - number of neurons in previous layer
 // outputDimension - number of neurons in the current layer
+//
+// In this implementation, the weights are owned by the layers. 
+// All the layers implement a common interface and provide implementation
+// to the forward and backward propagation operations on the weights in those layers
 //////////////////////////////////////////////////
 
 // Base Layer that all layers should inherit
@@ -80,7 +92,7 @@ public:
     }
 };
 
-
+// Implementation of a Fully Connected Layer
 class FullyConnectedHiddenLayer : public BaseLayer
 {
 
@@ -95,14 +107,14 @@ public:
 
 protected:
 
-    void initializeWeights()
+    virtual void initializeWeights() override
     {
         _weights.reserve(_inputDim * _outputDim);
         _weights.assign(_inputDim * _outputDim, 0.0);
         VectorRandomInitialize(_weights);
     }
     
-    void forwardProp(std::vector<float>& input, std::vector<float>& output)
+    virtual void forwardProp(std::vector<float>& input, std::vector<float>& output) override
     {
         std::cout << "Forward prop from Fully Connected Layer" << std::endl;
         // perform forward propagation
@@ -132,15 +144,19 @@ protected:
         for (int i = 0; i < sigma.size(); ++i)
         {   
             output[i] = 1 / 1 + exp(-sigma[i]); 
+
+#ifdef DEBUG_PRINT
             double param, fractpart, intpart;
-            fractpart = modf (output[i] , &intpart);
+            fractpart = modf(output[i] , &intpart);
             if (fractpart == 0.0)
             {
                 std::cout << "Fract Part is 0 : " << output[i] << std::endl;
             }
+#endif
             assert(output[i] >= 0);
         }
 
+#ifdef DEBUG_PRINT
         for (auto elem : sigma)
         {
             std::cout << elem << ":"; 
@@ -153,9 +169,11 @@ protected:
         }
 
         std::cout << " " << std::endl;
+#endif
+
     }
 
-    void backProp()
+    virtual void backProp() override
     {
 
     }
@@ -168,31 +186,21 @@ public:
     FullyConnectedOutputLayer(int32_t inputDim, int32_t outputDim)
         : FullyConnectedHiddenLayer(inputDim, outputDim)
     {
+
     }
 
 protected:
 
-    /*
-    void initializeWeights()
-    {
-        _weights.reserve(_inputDim * _outputDim);
-        _weights.assign(_inputDim * _outputDim, 0.0);
-        VectorRandomInitialize(_weights);
-    }
-    */
 
-    /*
-    void forwardProp(std::vector<float>& input, std::vector<float>& output)
+    void backProp() override
     {
-        std::cout << "forward prop from Output Layer" << std::endl;
-    }
+        // First Calculate the Cost Function
+            
 
-    void backProp()
-    {
-
+        
     }
-    */
 };
+
 typedef std::vector<std::shared_ptr<BaseLayer>> LayerSet;
 
 ////////////////////////////////////////
@@ -225,7 +233,7 @@ public:
         std::cout << "dataset size: " << _dataset.size() << "   " << _dataset[0]._input.size() << std::endl;
     }
 
-    bool getNext(InputData& input)
+    bool getNext(InputData& input) override
     {
         if (_currentOffset < _dataset.size())
         {
@@ -241,14 +249,12 @@ private:
     int32_t _currentOffset;
 };
 
-
 /////////////////////////////////////////////
 // Trainer - This class does the actual training
 ////////////////////////////////////////////
 class Trainer
 {   
 public:
-        
     Trainer(
         std::shared_ptr<LayerSet> layerSet, 
         std::shared_ptr<IDataFeed> dataFeed
